@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#F4A300" />
+  <title>Pokémon Card Scanner</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Barra de status do app -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="logo">⚡ Card Scanner</div>
+      <div class="header-actions">
+        <button id="btn-collection" class="icon-btn" title="Minha Coleção">📦</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- === TELA INICIAL === -->
+  <section id="screen-home" class="screen active">
+    <div class="home-container">
+      <h1>Pokémon Card Scanner</h1>
+      <p class="subtitle">Identifique suas cartas e consulte o valor no MYP Cards</p>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-label">Cartas identificadas</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-value">R$ 0,00</div>
+          <div class="stat-label">Valor total estimado</div>
+        </div>
+      </div>
+
+      <div class="actions-grid">
+        <button id="btn-scan" class="btn btn-primary btn-large">
+          📷 ESCANEAR CARTA
+        </button>
+        <button id="btn-upload" class="btn btn-outline btn-large">
+          📁 ENVIAR FOTO
+        </button>
+      </div>
+
+      <div class="recent-section">
+        <h2>Últimas cartas pesquisadas</h2>
+        <div id="recent-list" class="recent-list">
+          <!-- preenchido via JS -->
+        </div>
+        <p class="empty-msg" id="empty-recent" style="display:none;">
+          Nenhuma carta pesquisada ainda.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- === TELA DE ESCANEAMENTO === -->
+  <section id="screen-scan" class="screen">
+    <div class="scan-container">
+      <div class="camera-wrapper">
+        <video id="camera-video" playsinline autoplay muted></video>
+        <canvas id="camera-canvas"></canvas>
+
+        <!-- Moldura de orientação -->
+        <div class="frame-guide">
+          <div class="frame-corner top-left"></div>
+          <div class="frame-corner top-right"></div>
+          <div class="frame-corner bottom-left"></div>
+          <div class="frame-corner bottom-right"></div>
+          <div class="frame-text">Posicione a carta dentro da moldura</div>
+        </div>
+
+        <!-- Sobreposição de status -->
+        <div id="scan-status" class="scan-status hidden">
+          <div class="spinner"></div>
+          <span id="scan-status-text">Analisando carta...</span>
+        </div>
+      </div>
+
+      <div class="scan-controls">
+        <button id="btn-capture" class="btn btn-capture">
+          <div class="shutter"></div>
+        </button>
+        <button id="btn-switch-camera" class="btn btn-icon">🔄</button>
+      </div>
+
+      <div class="scan-hints">
+        <p>• Mantenha a carta bem iluminada</p>
+        <p>• Evite reflexos e sombras</p>
+        <p>• Centralize a carta na moldura</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- === TELA DE PRÉVIA DA FOTO === -->
+  <section id="screen-preview" class="screen">
+    <div class="preview-container">
+      <div class="preview-header">
+        <button id="btn-retake" class="btn btn-outline btn-small">🔄 Refazer foto</button>
+        <button id="btn-analyze" class="btn btn-primary btn-small">🔍 Analisar carta</button>
+      </div>
+
+      <div class="preview-image-wrapper">
+        <img id="preview-image" src="" alt="Foto da carta capturada" />
+      </div>
+
+      <div class="preview-actions">
+        <p>Confirme a imagem antes de analisar.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- === TELA DE RESULTADO === -->
+  <section id="screen-result" class="screen">
+    <div class="result-container">
+      <div class="result-header">
+        <button id="btn-back-home" class="btn btn-outline btn-small">← Voltar</button>
+        <span class="result-badge">Identificado</span>
+      </div>
+
+      <div class="result-card">
+        <div class="result-image">
+          <img id="result-image" src="" alt="Carta identificada" />
+        </div>
+
+        <div class="result-info">
+          <h2 id="result-name">Nome da carta</h2>
+          <div class="result-meta">
+            <span class="meta-chip" id="result-set">Coleção</span>
+            <span class="meta-chip" id="result-number">Nº</span>
+            <span class="meta-chip" id="result-rarity">Raridade</span>
+            <span class="meta-chip" id="result-language">Idioma</span>
+          </div>
+          <div class="result-variant" id="result-variant">Versão: Normal</div>
+        </div>
+      </div>
+
+      <!-- Preços -->
+      <div class="prices-section">
+        <h3>💰 Avaliação de mercado</h3>
+
+        <div id="prices-loading" class="loading-state">
+          <div class="spinner"></div>
+          <span>Consultando preços no MYP Cards...</span>
+        </div>
+
+        <div id="prices-content" class="prices-content hidden">
+          <div class="price-grid">
+            <div class="price-card">
+              <div class="price-label">Menor preço</div>
+              <div class="price-value" id="price-min">-</div>
+            </div>
+            <div class="price-card">
+              <div class="price-label">Preço médio</div>
+              <div class="price-value" id="price-avg">-</div>
+            </div>
+            <div class="price-card">
+              <div class="price-label">Maior preço</div>
+              <div class="price-value" id="price-max">-</div>
+            </div>
+            <div class="price-card">
+              <div class="price-label">Anúncios</div>
+              <div class="price-value" id="price-count">-</div>
+            </div>
+          </div>
+
+          <div class="price-note" id="price-note"></div>
+        </div>
+
+        <div id="prices-error" class="error-state hidden">
+          <p>Não foi possível consultar preços automaticamente.</p>
+          <button id="btn-mypcards-link" class="btn btn-outline btn-small">
+            🔗 Consultar no MYP Cards
+          </button>
+        </div>
+
+        <div class="sell-section">
+          <h4>Quanto posso pedir pela minha carta?</h4>
+          <div class="sell-grid">
+            <div class="sell-card">
+              <div class="sell-label">Preço de referência</div>
+              <div class="sell-value" id="sell-ref">-</div>
+            </div>
+            <div class="sell-card">
+              <div class="sell-label">Preço competitivo</div>
+              <div class="sell-value" id="sell-competitive">-</div>
+            </div>
+            <div class="sell-card">
+              <div class="sell-label">Venda rápida</div>
+              <div class="sell-value" id="sell-fast">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conservação -->
+      <div class="condition-section">
+        <h4>📋 Estado de conservação</h4>
+        <div class="condition-options">
+          <button class="condition-chip" data-condition="NM">Near Mint (NM)</button>
+          <button class="condition-chip" data-condition="EX">Excelente (EX)</button>
+          <button class="condition-chip" data-condition="GD">Bom (GD)</button>
+          <button class="condition-chip" data-condition="LP">Levemente jogado (LP)</button>
+          <button class="condition-chip" data-condition="PL">Jogado (PL)</button>
+          <button class="condition-chip" data-condition="PO">Ruim (PO)</button>
+        </div>
+        <p class="condition-note">
+          A IA não substitui uma avaliação física profissional.
+        </p>
+      </div>
+
+      <div class="result-actions">
+        <button id="btn-save-collection" class="btn btn-primary btn-large">
+          💾 Salvar na coleção
+        </button>
+        <button id="btn-new-scan" class="btn btn-outline btn-large">
+          🔄 Nova escaneagem
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- === TELA DA COLEÇÃO === -->
+  <section id="screen-collection" class="screen">
+    <div class="collection-container">
+      <div class="collection-header">
+        <button id="btn-collection-back" class="btn btn-outline btn-small">← Voltar</button>
+        <h2>Minha Coleção</h2>
+      </div>
+
+      <div class="collection-stats">
+        <div class="stat-card">
+          <div class="stat-value" id="coll-total">0</div>
+          <div class="stat-label">Cartas</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="coll-value">R$ 0,00</div>
+          <div class="stat-label">Valor total</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="coll-avg">-</div>
+          <div class="stat-label">Valor médio</div>
+        </div>
+      </div>
+
+      <div class="collection-search">
+        <input type="text" id="coll-search" placeholder="Pesquisar por nome da carta..." />
+      </div>
+
+      <div id="coll-list" class="collection-list">
+        <!-- preenchido via JS -->
+      </div>
+      <p class="empty-msg" id="coll-empty" style="display:none;">
+        Sua coleção está vazia. Escaneie algumas cartas!
+      </p>
+    </div>
+  </section>
+
+  <!-- Toast de notificação -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
