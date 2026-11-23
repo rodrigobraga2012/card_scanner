@@ -1,65 +1,64 @@
 """
 Pokémon Card Scanner - Backend (Flask)
-Projeto baseado na conversa com o ChatGPT sobre o scanner de cartas Pokémon.
 
-Arquitetura:
-- Flask como servidor web (leve, fácil de rodar no notebook)
-- SQLite para histórico local da coleção
-- Integração com TCGdex (catálogo público de cartas Pokémon)
-- Integração preparada com MYP Cards (preços no Brasil)
+- Identificação da carta por foto: Claude (visão) + catálogo TCGdex
+- Preço em R$: preços de mercado da TCGdex (Cardmarket/TCGplayer) + cotação do dia
+- Coleção local em SQLite
 
 Execução:
     pip install -r requirements.txt
     python main.py
 
-O servidor escuta em 0.0.0.0:5000 para aceitar conexões do iPhone na mesma rede Wi-Fi.
+Para abrir a câmera no celular é preciso HTTPS. Veja o README.md na raiz.
 """
 
 import os
-from flask import Flask, jsonify, request, send_from_directory
-from flask_cors import CORS
+
 from dotenv import load_dotenv
 
-from routes.cards import cards_bp
-from routes.prices import prices_bp
-from routes.collection import collection_bp
+# Carrega o .env ANTES de importar as rotas (elas leem variáveis na importação)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-# Carrega variáveis de ambiente do arquivo .env
-load_dotenv()
+from flask import Flask, jsonify, send_from_directory  # noqa: E402
+
+from routes.cards import cards_bp  # noqa: E402
+from routes.collection import collection_bp  # noqa: E402
+from routes.prices import prices_bp  # noqa: E402
+from services import identify  # noqa: E402
 
 app = Flask(__name__, static_folder=None)
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # uploads de até 10 MB
 
-# Habilita CORS para permitir acesso do frontend (mesmo dispositivo ou rede local)
-CORS(app)
-
-# Registra blueprints de rotas
 app.register_blueprint(cards_bp, url_prefix="/api")
 app.register_blueprint(prices_bp, url_prefix="/api")
 app.register_blueprint(collection_bp, url_prefix="/api")
 
-# Caminho absoluto para o frontend
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
 
 
 @app.route("/")
 def index():
-    """Serve a página principal do scanner."""
     return send_from_directory(FRONTEND_DIR, "index.html")
-
-
-@app.route("/<path:filename>")
-def static_files(filename):
-    """Serve arquivos estáticos do frontend (CSS, JS, imagens, etc.)."""
-    return send_from_directory(FRONTEND_DIR, filename)
 
 
 @app.route("/health")
 def health():
-    """Endpoint de saúde para verificar se o servidor está online."""
-    return jsonify({"status": "online", "service": "pokemon-card-scanner"})
+    return jsonify({
+        "status": "online",
+        "service": "pokemon-card-scanner",
+        "photo_identification": identify.is_configured(),
+    })
+
+
+@app.route("/<path:filename>")
+def static_files(filename):
+    return send_from_directory(FRONTEND_DIR, filename)
 
 
 if __name__ == "__main__":
-    # Debug desativado em produção. Host 0.0.0.0 permite acesso pelo iPhone na rede Wi-Fi.
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.getenv("PORT", "5000"))
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    # HTTPS=1 gera um certificado autoassinado (útil para testar câmera no Android).
+    ssl_context = "adhoc" if os.getenv("HTTPS", "0") == "1" else None
+    app.run(host="0.0.0.0", port=port, debug=debug, ssl_context=ssl_context)
