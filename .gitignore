@@ -1,0 +1,14 @@
+# Segredos
+.env
+backend/.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Dados locais e logs
+backend/database/*.db
+backend/temp_uploads/
+*.log

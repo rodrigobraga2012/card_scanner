@@ -35,6 +35,9 @@ def init_db():
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(collection)")}
+    if "card_id" not in cols:
+        conn.execute("ALTER TABLE collection ADD COLUMN card_id TEXT")
     conn.commit()
     conn.close()
 
@@ -70,9 +73,10 @@ def save_card():
 
     conn = get_db()
     cursor = conn.execute("""
-        INSERT INTO collection (name, set_name, number, rarity, language, image_url, condition, price_found, price_source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO collection (card_id, name, set_name, number, rarity, language, image_url, condition, price_found, price_source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
+        data.get("card_id"),
         data.get("name"),
         data.get("set_name"),
         data.get("number"),
@@ -81,7 +85,7 @@ def save_card():
         data.get("image_url"),
         data.get("condition", "NM"),
         data.get("price_found"),
-        data.get("price_source", "TCGdex / MYP Cards")
+        data.get("price_source")
     ))
     conn.commit()
     new_id = cursor.lastrowid
